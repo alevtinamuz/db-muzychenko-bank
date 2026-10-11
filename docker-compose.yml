@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Нет файла .env, выполните: cp .env.example .env}"
+      # Лаба 4: пароли ролей приложения, скрипт ролей читает их через \getenv
+      APP_READER_PASSWORD: ${APP_READER_PASSWORD:-}
+      APP_WRITER_PASSWORD: ${APP_WRITER_PASSWORD:-}
+      TZ: Europe/Moscow
+      PGTZ: Europe/Moscow
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      # Скрипты из db/ выполняются по порядку имён только при первом запуске, пока база пустая.
+      # После изменения скриптов пересоздайте базу: docker compose down -v && docker compose up -d
+      - ./db:/docker-entrypoint-initdb.d:ro
+      # Сценарии demo/ доступны внутри контейнера: в psql их можно запустить командой \i /demo/lab1.sql
+      - ./demo:/demo:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 90
+
+volumes:
+  pgdata:

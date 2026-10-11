@@ -1,0 +1,11 @@
+-- Лаба 1. Схема базы: таблицы, ключи, ограничения.
+-- Скрипты из db/ выполняются по порядку имён при первом docker compose up.
+-- Следующие лабы добавляют новые файлы (02_seed.sql, 03_..., 10_views.sql и так далее), этот файл остаётся.
+--
+-- Пример, замените своими таблицами:
+--
+-- CREATE TABLE halls (
+--     id    integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+--     name  text NOT NULL UNIQUE,
+--     seats integer NOT NULL CHECK (seats > 0)
+-- );

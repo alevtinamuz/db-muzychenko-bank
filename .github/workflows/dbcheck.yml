@@ -1,0 +1,12 @@
+# Проверка каждого Pull Request: GitHub поднимает базу из db/ на чистой машине и запускает dbcheck.
+# Номер лабы берётся из имени ветки: lab-3 означает лабу 3, проверяются лабы с 1 по 3.
+# Менять здесь ничего не нужно. Результат виден в PR, подробности во вкладке Checks, раздел Summary.
+name: dbcheck
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  dbcheck:
+    uses: bozhedom/dbcheck/.github/workflows/check.yml@v1
