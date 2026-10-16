@@ -1,18 +1,12 @@
-<!--
-  Это шаблон. После создания своего репозитория:
-  1. Назовите репозиторий db-<фамилия>-<тема>, например db-ivanova-cinema.
-  2. Заполните разделы ниже под свою тему и удалите этот комментарий.
--->
+# Банк
 
-# Название проекта
-
-Тема № __: **...**. Одно предложение: какие данные хранит база и кому они нужны.
+Тема № 18: **Банк**. База данных хранит клиентов банка, их счета, совместные счета, карты, операции по счетам, кредиты; она нужна сотрудникам банка для учета денег и контроля(баланс дебетового счета не должен уходить в минус).
 
 | | |
 | --- | --- |
-| Главная таблица | ... |
-| Связь N:M | ... и ... через `...` |
-| Бизнес-правило | ... |
+| Главная таблица | `operations` |
+| Связь N:M | `clients` и `accounts` через `account_holders` |
+| Бизнес-правило | Баланс дебетового счёта не уходит в минус |
 | СУБД | PostgreSQL 17 в Docker |
 
 ## Задания курса
@@ -42,23 +36,70 @@ dbcheck run demo/lab1.sql     # сценарий лабы 1
 
 ## ER-диаграмма
 
-<!-- Замените пример своими таблицами: 5+ таблиц, связь N:M через связующую таблицу. -->
-
 ```mermaid
 erDiagram
-    films ||--o{ sessions : "показывают"
-    halls ||--o{ sessions : "проходит в"
-    sessions ||--o{ tickets : "продано"
-    films ||--o{ film_genres : ""
-    genres ||--o{ film_genres : ""
+    clients ||--o{ account_holders : "владеет"
+    accounts ||--o{ account_holders : "принадлежит"
+    accounts ||--o{ cards : "к счету выпущена"
+    clients ||--o{ cards : "выпущена на клиента"
+    accounts ||--o{ operations : "проводятся по"
+    cards ||--o{ operations : "оплата картой"
+    clients ||--o{ credits : "берет"
+    accounts ||--o{ credits : "обслуживается через"
 
-    films {
+    clients {
         int id PK
-        text title
+        text last_name
+        text first_name
+        text middle_name
+        text passport UK
+        text phone UK
+        text email UK
+        date birth_date
+        timestamptz created_at
     }
-    film_genres {
-        int film_id PK, FK
-        int genre_id PK, FK
+    accounts {
+        int id PK
+        text number UK
+        account_kind kind
+        account_status status
+        numeric balance
+        char currency
+        timestamptz opened_at
+    }
+    account_holders {
+      int client_id PK, FK
+      int account_id PK, FK
+      boolean is_primary
+      timestamptz added_at
+    }
+    cards {
+      int id PK
+      int account_id FK
+      int client_id FK
+      text number UK
+      card_status status
+      date expires_at
+      date issued_at
+    }
+    operations {
+      int id PK
+      int account_id FK
+      int card_id FK
+      operation_kind kind
+      numeric amount
+      text description
+      timestamptz created_at
+    }
+    credits {
+      int id PK
+      int client_id FK
+      int account_id FK
+      numeric principal
+      numeric rate_percent
+      int term_months
+      credit_status status
+      timestamptz issued_at
     }
 ```
 
@@ -66,18 +107,78 @@ erDiagram
 
 | Ограничение | Таблица и колонки | Зачем |
 | --- | --- | --- |
-| `UNIQUE` | ... | ... |
-| `CHECK` | ... | ... |
+| `UNIQUE` | `clients (passport)`, `clients (phone)`, `clients (email)` | Контакты человека не повторяются, один человек не заводится в банке дважды |
+| `UNIQUE` | `accounts (number)`, `cards (number)` | Номер счета и номер карты должны однозначно определять объект |
+| `CHECK` | `accounts`: `kind <> 'debit' OR balance >= 0` | Бизнес-правило: баланс дебетового счёта не уходит в минус |
+| `CHECK` | `accounts (number)`, `cards (number)` | 20 цифр у счета, 16 у карты, первая цифра не 0 |
+| `CHECK` | `operations (amount)` | Сумма операции всегда положительная, вид операции определяет `kind` (пополнение, снятие, ...) |
+| `CHECK` | `credits (principal, rate_percent, term_months)` | Сумма и срок кредита > 0, ставка от 0 до 100 % |
+| `CHECK` | `cards`: `expires_at > issued_at` | Дата выпуска карты раньше даты окончания её действия |
+| `CHECK` | `clients (birth_date)` | Дата рождения > 1900 года, защита от опечаток в дате рождения |
+| `NOT NULL` | Все поля, кроме `clients.middle_name`, `clients.email`, `operations.card_id` и `operations.description` | Обязательные данные не могут быть пустыми |
 
 ## Что сделано по лабам
 
 | Лаба | Что сделано | Сценарий |
 | --- | --- | --- |
-| 1 | ... | `demo/lab1.sql` |
+| 1 | 6 таблиц (`01_schema.sql`), тестовые данные (`02_seed.sql`), 5000 сгенерированных операций (`03_generate.sql`) | `demo/lab1.sql` |
 | 2 | ... | `demo/lab2.sql` |
 | 3 | ... | `demo/lab3.sql` |
 | 4 | ... | `demo/lab4.sql`, `demo/race.sql`, `demo/race_fixed.sql` |
 | 5 | ... | `demo/lab5.sql` |
+
+## Нормализация
+
+Исходная таблица, в которой всё в одном месте:
+
+| операция | сумма | клиент ФИО | паспорт | телефон | номер счёта | тип счёта | баланс | номер карты | кредит |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 3200.50 | Иванов И. И. | 4510 123456 | +79001110001 | 4081781... | debit | 125000.50 | 5469... | 100000 |
+| 2 | 15000 | Иванов И. И. | 4510 123456 | +79001110001 | 4081781... | debit | 125000.50 | 5469... | 100000 |
+
+Что здесь не так:
+
+- **Повторы данных.** Фамилия, имя, паспорт и телефон клиента записаны в каждой его операции. При смене телефона его пришлось бы менять во всех строках, и где-нибудь остался бы старый. Баланс счёта тоже повторяется в каждой операции по нему.
+- **1НФ.** У счёта может быть несколько владельцев, у клиента несколько карт. Такие списки в одной ячейке («Иванов, Петрова») нарушают 1НФ, поэтому владельцы вынесены в отдельную таблицу.
+- **2НФ.** В таблице `account_holders` ключ составной `(client_id, account_id)`. В ней нет данных, которые зависели бы только от клиента или только от счёта: фамилия, имя и отчество лежат в `clients`, баланс в `accounts`. Остались только свойства самой связи (`is_primary`, `added_at`).
+- **3НФ.** Неключевые колонки не зависят друг от друга: тип и баланс счёта зависят только от счёта, ставка и срок только от кредита.
+
+Как разделено:
+
+| Таблица | Что хранит |
+| --- | --- |
+| `clients` | Данные человека |
+| `accounts` | Данные счёта |
+| `account_holders` | Кто чем владеет (N:M) |
+| `cards` | Карты: ссылка на счёт и клиента |
+| `operations` | Только суммы и вид операции, остальное по ссылке на счёт |
+| `credits` | Параметры кредита, ссылки на клиента и счёт |
+
+## Типы данных
+
+| Что | Тип | Почему |
+| --- | --- | --- |
+| Деньги (`balance`, `amount`, `principal`) | `numeric(14, 2)` | `float` хранит числа приближённо, для денег это недопустимо |
+| Процентная ставка | `numeric(5, 2)` | Точное значение, например 14.50 |
+| Моменты времени (`created_at`, `opened_at`) | `timestamptz` | Учитывает часовой пояс |
+| Даты без времени (`birth_date`, `expires_at`, `issued_at`) | `date` | Время суток не нужно |
+| Вид и статус счёта, карты, операции, кредита | `enum` | База данных не примет значение вне списка |
+| Номера счёта и карты | `text` + `CHECK` на формат | Хранятся как строки + `CHECK` проверяет формат: количество цифр и то, что первая цифра не 0 |
+
+## Что происходит при удалении
+
+У каждого внешнего ключа явно указан `ON DELETE`.
+
+| Связь | ON DELETE | Причина |
+| --- | --- | --- |
+| `account_holders.client_id` → `clients` | `RESTRICT` | Клиента, у которого есть счета, удалять нельзя: сначала нужно закрыть счета |
+| `account_holders.account_id` → `accounts` | `CASCADE` | Если счёт удалён, связи «клиент-счёт» теряют смысл |
+| `cards.account_id` → `accounts` | `CASCADE` | Карта без счёта не нужна, удаляется вместе со счётом |
+| `cards.client_id` → `clients` | `RESTRICT` | Клиента с выпущенными картами удалять нельзя |
+| `operations.account_id` → `accounts` | `RESTRICT` | История операций это финансовый документ, счёт с операциями удалять нельзя |
+| `operations.card_id` → `cards` | `SET NULL` | Если карту удалили, операция остаётся в истории, просто без карты |
+| `credits.client_id` → `clients` | `RESTRICT` | Нельзя удалить клиента с кредитом |
+| `credits.account_id` → `accounts` | `RESTRICT` | Нельзя удалить счёт, по которому идёт кредит |
 
 <!--
   Разделы, которые добавляются по ходу курса:
