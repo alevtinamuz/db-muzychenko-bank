@@ -122,7 +122,7 @@ erDiagram
 | Лаба | Что сделано | Сценарий |
 | --- | --- | --- |
 | 1 | 6 таблиц (`01_schema.sql`), тестовые данные (`02_seed.sql`), 5000 сгенерированных операций (`03_generate.sql`) | `demo/lab1.sql` |
-| 2 | 16 запросов (``) | `demo/lab2.sql` |
+| 2 | 16 запросов | `demo/lab2.sql` |
 | 3 | ... | `demo/lab3.sql` |
 | 4 | ... | `demo/lab4.sql`, `demo/race.sql`, `demo/race_fixed.sql` |
 | 5 | ... | `demo/lab5.sql` |
